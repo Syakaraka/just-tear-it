@@ -30,7 +30,10 @@ public class MainMenuManager : MonoBehaviour
     private void Start()
     {
         // 设置游戏状态
-        GameManager.Instance.SetGameState(GameState.MainMenu);
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetGameState(GameState.MainMenu);
+        }
 
         // 获取设置管理器
         settingsManager = SettingsManager.Instance;
