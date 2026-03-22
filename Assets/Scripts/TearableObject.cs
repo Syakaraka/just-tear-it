@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// 可撕裂物体基类
@@ -7,24 +8,49 @@ using System;
 public class TearableObject : MonoBehaviour
 {
     [Header("撕裂配置")]
-    [SerializeField] protected float tearStrength = 1f;      // 撕裂强度
-    [SerializeField] protected float tearResistance = 0.5f;    // 撕裂阻力
-    [SerializeField] protected float tornAmount = 0f;           // 已撕裂比例
+    [SerializeField] protected float tearStrength = 1f;           // 撕裂强度
+    [SerializeField] protected float tearResistance = 0.5f;       // 撕裂阻力
+    [SerializeField] protected float tornAmount = 0f;              // 已撕裂比例
 
-    [Header("撕裂阈值")]
-    [SerializeField] protected float tearThreshold = 0.1f;      // 单次撕裂阈值
-    [SerializeField] protected float maxTearDistance = 10f;   // 最大撕裂距离
+    [Header("撕裂视觉效果")]
+    [SerializeField] protected Material tornMaterial;              // 撕裂后的材质
+    [SerializeField] protected Color tornEdgeColor = new Color(1f, 0.8f, 0.6f); // 撕裂边缘颜色
+    [SerializeField] protected float tornEdgeWidth = 0.05f;        // 撕裂边缘宽度
+    [SerializeField] protected GameObject tornEdgePrefab;          // 撕裂边缘特效预制体
 
-    [Header("视觉配置")]
-    [SerializeField] protected Material tornMaterial;           // 撕裂后的材质
-    [SerializeField] protected GameObject tornEdgePrefab;       // 撕裂边缘特效
+    [Header("Mesh撕裂配置")]
+    [SerializeField] protected bool useMeshTear = true;           // 是否使用Mesh撕裂
+    [SerializeField] protected int maxTearVertices = 50;           // 最大撕裂顶点数
+
+    [Header("撕裂音效")]
+    [SerializeField] protected AudioClip[] tearSounds;             // 撕裂音效数组
 
     // 状态
     public bool IsTorn => tornAmount >= 1f;
     public float TornAmount => tornAmount;
+    public Vector2 LastTearDirection { get; private set; }
 
     // 事件
     public event Action<float> OnTornChanged;
+    public event Action OnFullyTorn;
+
+    // 内部状态
+    protected Renderer objectRenderer;
+    protected Material originalMaterial;
+    protected Material instanceMaterial;
+    protected List<Vector3> tearVertices = new List<Vector3>();
+    protected Vector2 currentTearUV;
+
+    protected virtual void Awake()
+    {
+        objectRenderer = GetComponent<Renderer>();
+        if (objectRenderer != null)
+        {
+            originalMaterial = objectRenderer.sharedMaterial;
+            instanceMaterial = new Material(originalMaterial);
+            objectRenderer.material = instanceMaterial;
+        }
+    }
 
     /// <summary>
     /// 执行撕裂
@@ -36,12 +62,22 @@ public class TearableObject : MonoBehaviour
     {
         if (IsTorn) return 0f;
 
+        LastTearDirection = tearDirection;
+
         // 计算撕裂效果
         float tearEffect = (tearSpeed * tearStrength) / tearResistance;
         float tearDelta = tearEffect * Time.deltaTime;
 
         tornAmount = Mathf.Clamp01(tornAmount + tearDelta);
+
+        // 更新视觉效果
         UpdateVisuals();
+
+        // 如果达到撕裂完成阈值，触发完成效果
+        if (tornAmount >= 1f && tearDelta > 0)
+        {
+            OnFullyTorn?.Invoke();
+        }
 
         OnTornChanged?.Invoke(tornAmount);
 
@@ -53,10 +89,18 @@ public class TearableObject : MonoBehaviour
     /// </summary>
     protected virtual void UpdateVisuals()
     {
-        if (tornMaterial != null && GetComponent<Renderer>() != null)
+        if (instanceMaterial == null) return;
+
+        // 设置撕裂进度到shader
+        instanceMaterial.SetFloat("_TornAmount", tornAmount);
+        instanceMaterial.SetColor("_TornEdgeColor", tornEdgeColor);
+        instanceMaterial.SetFloat("_TornEdgeWidth", tornEdgeWidth);
+
+        // 根据撕裂进度调整颜色（边缘磨损效果）
+        if (tornAmount > 0.1f)
         {
-            // 混合撕裂程度到材质
-            GetComponent<Renderer>().material.Lerp(GetComponent<Renderer>().sharedMaterial, tornMaterial, tornAmount);
+            Color edgeColor = Color.Lerp(Color.white, tornEdgeColor, (tornAmount - 0.1f) / 0.9f);
+            instanceMaterial.SetColor("_TearTint", edgeColor);
         }
     }
 
@@ -68,6 +112,7 @@ public class TearableObject : MonoBehaviour
         tornAmount = 1f;
         UpdateVisuals();
         PlayTornEffect();
+        OnFullyTorn?.Invoke();
     }
 
     /// <summary>
@@ -77,8 +122,36 @@ public class TearableObject : MonoBehaviour
     {
         if (tornEdgePrefab != null)
         {
-            Instantiate(tornEdgePrefab, transform.position, Quaternion.identity);
+            // 在撕裂中心位置生成特效
+            Vector3 spawnPos = transform.position + Vector3.back * 0.1f;
+            GameObject effect = Instantiate(tornEdgePrefab, spawnPos, Quaternion.identity);
+            Destroy(effect, 2f);
         }
+    }
+
+    /// <summary>
+    /// 播放撕裂音效
+    /// </summary>
+    protected void PlayTearSound(float intensity = 1f)
+    {
+        if (tearSounds == null || tearSounds.Length == 0) return;
+
+        // 根据撕裂量选择音效
+        int index = Mathf.Clamp(
+            Mathf.FloorToInt(tornAmount * tearSounds.Length),
+            0,
+            tearSounds.Length - 1
+        );
+
+        AudioSource.PlayClipAtPoint(tearSounds[index], transform.position, intensity);
+    }
+
+    /// <summary>
+    /// 获取撕裂边缘的世界坐标
+    /// </summary>
+    public virtual Vector2 GetTearEdgeWorldPosition()
+    {
+        return transform.TransformPoint(currentTearUV);
     }
 
     /// <summary>
@@ -87,6 +160,27 @@ public class TearableObject : MonoBehaviour
     public virtual void ResetTear()
     {
         tornAmount = 0f;
-        UpdateVisuals();
+        tearVertices.Clear();
+
+        if (instanceMaterial != null && originalMaterial != null)
+        {
+            instanceMaterial.CopyPropertiesFromMaterial(originalMaterial);
+        }
+    }
+
+    protected virtual void OnDestroy()
+    {
+        if (instanceMaterial != null)
+        {
+            Destroy(instanceMaterial);
+        }
+    }
+
+    /// <summary>
+    /// 获取撕裂信息（用于调试）
+    /// </summary>
+    public string GetTearDebugInfo()
+    {
+        return $"TornAmount: {tornAmount:F2}, IsTorn: {IsTorn}, Direction: {LastTearDirection}";
     }
 }
