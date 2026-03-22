@@ -16,8 +16,9 @@ public class AnalyticsManager : MonoBehaviour
             if (instance == null)
             {
                 var go = new GameObject("AnalyticsManager");
-                instance = go.AddComponent<AnalyticsManager>();
+                var newInstance = go.AddComponent<AnalyticsManager>();
                 DontDestroyOnLoad(go);
+                instance = newInstance;
             }
             return instance;
         }

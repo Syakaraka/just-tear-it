@@ -15,8 +15,9 @@ public class AudioManager : MonoBehaviour
             if (instance == null)
             {
                 var go = new GameObject("AudioManager");
-                instance = go.AddComponent<AudioManager>();
+                var newInstance = go.AddComponent<AudioManager>();
                 DontDestroyOnLoad(go);
+                instance = newInstance;
             }
             return instance;
         }

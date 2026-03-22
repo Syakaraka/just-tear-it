@@ -15,8 +15,9 @@ public class AdInterface : MonoBehaviour
             if (instance == null)
             {
                 var go = new GameObject("AdInterface");
-                instance = go.AddComponent<AdInterface>();
+                var newInstance = go.AddComponent<AdInterface>();
                 DontDestroyOnLoad(go);
+                instance = newInstance;
             }
             return instance;
         }

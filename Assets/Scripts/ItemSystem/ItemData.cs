@@ -41,8 +41,9 @@ public class ItemSystem : MonoBehaviour
             if (instance == null)
             {
                 var go = new GameObject("ItemSystem");
-                instance = go.AddComponent<ItemSystem>();
+                var newInstance = go.AddComponent<ItemSystem>();
                 DontDestroyOnLoad(go);
+                instance = newInstance;
             }
             return instance;
         }

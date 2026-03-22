@@ -15,8 +15,9 @@ public class SettingsManager : MonoBehaviour
             if (instance == null)
             {
                 var go = new GameObject("SettingsManager");
-                instance = go.AddComponent<SettingsManager>();
+                var newInstance = go.AddComponent<SettingsManager>();
                 DontDestroyOnLoad(go);
+                instance = newInstance;
             }
             return instance;
         }
