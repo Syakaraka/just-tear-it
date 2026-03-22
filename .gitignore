@@ -1,0 +1,58 @@
+# Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+
+# Unity specific
+*.unitypackage
+*.asset
+*.mat
+*.png
+*.jpg
+*.wav
+*.mp3
+*.controller
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Backup files
+*.orig
+*.bak
+
+# JetBrains Rider
+.idea/
+
+# Profiler
+*.crash
+*.profile
+
+# Package data
+*.unitypackage.meta
